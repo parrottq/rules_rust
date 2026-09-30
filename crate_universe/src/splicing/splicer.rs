@@ -158,6 +158,37 @@ impl<'a> SplicerKind<'a> {
             .parent()
             .expect("Every manifest should have a parent directory");
 
+        // Splice at the depth the workspace has below the Bazel root and link each
+        // ancestor's other entries, so relative `path` dependencies that leave the
+        // workspace directory resolve like they do in the Bazel workspace.
+        let workspace_dir = &match manifest_dir.strip_prefix(nonhermetic_root_bazel_workspace_dir) {
+            Ok(relative) if !relative.as_str().is_empty() => {
+                let mut source = nonhermetic_root_bazel_workspace_dir.to_owned();
+                let mut dest = workspace_dir.to_owned();
+                for component in relative.components() {
+                    let name = component.as_str();
+                    fs::create_dir_all(&dest)?;
+                    let bazel_ignored = bazel_ignored_entries(source.as_std_path());
+                    for entry in source.read_dir_utf8()?.flatten() {
+                        let entry_name = entry.file_name();
+                        let ignored = IGNORE_LIST
+                            .iter()
+                            .copied()
+                            .chain(bazel_ignored.iter().map(String::as_str))
+                            .any(|pattern| ignore_pattern_matches(pattern, entry_name));
+                        // Cargo configs above the workspace are rejected by `setup_cargo_config`.
+                        if entry_name != name && entry_name != ".cargo" && !ignored {
+                            symlink(entry.path().as_std_path(), dest.join(entry_name).as_std_path())?;
+                        }
+                    }
+                    source.push(name);
+                    dest.push(name);
+                }
+                dest
+            }
+            _ => workspace_dir.to_owned(),
+        };
+
         // Link the sources of the root manifest into the new workspace
         symlink_roots(
             manifest_dir.as_std_path(),

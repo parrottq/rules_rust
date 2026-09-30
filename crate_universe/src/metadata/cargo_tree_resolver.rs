@@ -383,10 +383,21 @@ impl TreeResolver {
 
         let tempdir = tempfile::tempdir().context("Failed to make tempdir")?;
 
+        // Copy the project next to the original, so relative `path` dependencies that
+        // leave the workspace directory still resolve.
+        let proc_macro_dir = tempfile::Builder::new()
+            .prefix(".explicit_proc_macro_deps")
+            .tempdir_in(
+                pristine_manifest_path
+                    .parent()
+                    .and_then(Utf8Path::parent)
+                    .context("Manifest has no grandparent directory")?,
+            )
+            .context("Failed to make tempdir")?;
         let manifest_path_with_transitive_proc_macros = self
             .copy_project_with_explicit_deps_on_all_transitive_proc_macros(
                 pristine_manifest_path,
-                &tempdir.path().join("explicit_proc_macro_deps"),
+                proc_macro_dir.path(),
             )
             .context("Failed to copy project with proc macro deps made direct")?;
 

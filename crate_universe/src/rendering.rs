@@ -14,7 +14,6 @@ use itertools::Itertools;
 use crate::config::{AliasRule, RenderConfig, VendorMode};
 use crate::context::crate_context::{CrateContext, CrateDependency, Rule};
 use crate::context::{Context, TargetAttributes};
-use crate::metadata::SourceAnnotation;
 use crate::rendering::template_engine::TemplateEngine;
 use crate::select::Select;
 use crate::splicing::default_splicing_package_crate_id;
@@ -493,10 +492,9 @@ impl Renderer {
                     Err(e) => bail!(e),
                 };
 
-                let filename = match &context.crates[id].repository {
-                    Some(SourceAnnotation::Path { path }) => path.join("BUILD.bazel").into(),
-                    _ => Renderer::label_to_path(&label),
-                };
+                // Path crates get their BUILD file from `local_crate_mirror`, so keep this
+                // one inside the generated repository instead of the crate's source tree.
+                let filename = Renderer::label_to_path(&label);
                 let content = self.render_one_build_file(engine, platforms, &context.crates[id])?;
                 Ok((filename, content))
             })

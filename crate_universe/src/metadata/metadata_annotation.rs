@@ -318,7 +318,25 @@ impl LockfileAnnotation {
                                     new_path.push(suffix);
                                     new_path
                                 }
-                                Err(_) => Utf8PathBuf::from(path_in_lockfile),
+                                Err(_) => {
+                                    // The workspace may be spliced below the Bazel root (see
+                                    // `splice_workspace`), so resolve crates outside of it
+                                    // relative to the splice root instead.
+                                    let splice_root = workspace_metadata
+                                        .workspace_prefix
+                                        .as_deref()
+                                        .and_then(|prefix| {
+                                            metadata.workspace_root.as_str().strip_suffix(prefix)
+                                        });
+                                    match splice_root.and_then(|root| {
+                                        Utf8Path::new(path_in_lockfile).strip_prefix(root).ok()
+                                    }) {
+                                        Some(relative) => {
+                                            nonhermetic_root_bazel_workspace_dir.join(relative)
+                                        }
+                                        None => Utf8PathBuf::from(path_in_lockfile),
+                                    }
+                                }
                             };
                             return Ok(SourceAnnotation::Path { path });
                         }

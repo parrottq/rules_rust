@@ -6,7 +6,12 @@ load("//crate_universe/private:urls.bzl", "CARGO_BAZEL_SHA256S", "CARGO_BAZEL_UR
 load("//rust/platform:triple.bzl", "get_host_triple")
 
 def _local_crate_mirror_impl(repository_ctx):
-    path = repository_ctx.path(repository_ctx.attr.path)
+    # crate_universe records crates inside the Bazel workspace relative to its root.
+    attr_path = repository_ctx.attr.path
+    if attr_path.startswith("/") or attr_path[1:3] in (":/", ":\\"):
+        path = repository_ctx.path(attr_path)
+    else:
+        path = repository_ctx.workspace_root.get_child(attr_path)
 
     host_triple = get_host_triple(repository_ctx)
 
@@ -57,7 +62,7 @@ This is effectively a `local_repository` rule implementation, but where the `BUI
         ),
         "path": attr.string(
             # TODO: Verify what happens if this is not an absolute path.
-            doc = "Absolute path to the crate source directory whose contents will be copied into the mirror repository.",
+            doc = "Path to the crate source directory whose contents will be copied into the mirror repository. Relative paths are relative to the root of the main repository.",
         ),
         "quiet": attr.bool(
             doc = "If stdout and stderr should not be printed to the terminal.",

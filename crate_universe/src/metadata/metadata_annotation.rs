@@ -306,8 +306,8 @@ impl LockfileAnnotation {
                                         } else {
                                             // If path in lockfile is not under Bazel root, we are
                                             // likely in a temporary directory, so rebase to Bazel
-                                            // root.
-                                            new_path.push(nonhermetic_root_bazel_workspace_dir);
+                                            // root. The path stays relative to it, because it is
+                                            // recorded in lock files that other checkouts share.
                                             if let Some(prefix) =
                                                 workspace_metadata.workspace_prefix.as_ref()
                                             {
@@ -331,9 +331,7 @@ impl LockfileAnnotation {
                                     match splice_root.and_then(|root| {
                                         Utf8Path::new(path_in_lockfile).strip_prefix(root).ok()
                                     }) {
-                                        Some(relative) => {
-                                            nonhermetic_root_bazel_workspace_dir.join(relative)
-                                        }
+                                        Some(relative) => relative.to_owned(),
                                         None => Utf8PathBuf::from(path_in_lockfile),
                                     }
                                 }

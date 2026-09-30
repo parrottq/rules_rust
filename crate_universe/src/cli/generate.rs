@@ -336,7 +336,12 @@ fn write_paths_to_track<
     let source_annotation_manifests: BTreeSet<_> = source_annotations
         .filter_map(|v| {
             if let SourceAnnotation::Path { path } = v {
-                Some(path.join("Cargo.toml"))
+                // Paths inside the Bazel workspace are relative to it.
+                Some(
+                    nonhermetic_root_bazel_workspace_dir
+                        .join(path)
+                        .join("Cargo.toml"),
+                )
             } else {
                 None
             }
@@ -356,7 +361,12 @@ fn write_paths_to_track<
     .context("Failed to write paths to track")?;
 
     let mut warnings = Vec::new();
-    for source_annotation_manifest in &source_annotation_manifests {
+    // Path dependencies inside the Bazel workspace are tracked above, so only those outside it
+    // make the build depend on untracked files.
+    for source_annotation_manifest in source_annotation_manifests
+        .iter()
+        .filter(|p| !p.starts_with(nonhermetic_root_bazel_workspace_dir))
+    {
         warnings.push(format!("Build is not hermetic - path dependency pulling in crate at {source_annotation_manifest} is being used."));
     }
     for unused_patch in unused_patches {

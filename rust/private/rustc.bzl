@@ -2851,9 +2851,15 @@ def portable_link_flags(
                 "-lstatic=%s" % get_lib_name(artifact),
                 "-Clink-arg={}".format(artifact.basename),
             ]
-        else:
+        elif for_darwin:
             return [
                 "-lstatic=%s" % get_lib_name(artifact),
+                "-Clink-arg=-l{}".format(get_lib_name(artifact)),
+            ]
+        else: # Linux
+            return [
+                "-lstatic=%s" % get_lib_name(artifact),
+                "-Clink-arg=-Wl,-Bstatic",
                 "-Clink-arg=-l{}".format(get_lib_name(artifact)),
             ]
     elif _is_dylib(lib):
